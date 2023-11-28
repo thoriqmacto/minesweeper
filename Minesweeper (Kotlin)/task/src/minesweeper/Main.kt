@@ -3,7 +3,9 @@ package minesweeper
 import kotlin.random.Random
 
 fun main() {
-    val battleField = createBattleField(9,9,10)
+    print("How many mines do you want on the field?")
+    val numMines = readln().toInt()
+    val battleField = createBattleField(9,9,numMines)
 }
 
 fun createBattleField(row:Int,col:Int,mines:Int): MutableList<MutableList<Char>> {
@@ -44,15 +46,15 @@ fun createBattleField(row:Int,col:Int,mines:Int): MutableList<MutableList<Char>>
 fun generateMinesCoordinate(numMines:Int,row:Int, col: Int):MutableList<String>{
     val output = mutableListOf<String>()
 
-    for (i in 0 until numMines){
-        val randomRow = Random.nextInt(0,row)
-        val randomCol = Random.nextInt(0,col)
+    do {
+        val randomRow = Random.nextInt(0, row)
+        val randomCol = Random.nextInt(0, col)
 
-        while (!output.contains("$randomRow|$randomCol")){
+        if (!output.contains("$randomRow|$randomCol")) {
             output.add("$randomRow|$randomCol")
 //            println("$randomRow|$randomCol")
         }
-    }
+    }while (output.size < numMines)
 
     return output
 }
