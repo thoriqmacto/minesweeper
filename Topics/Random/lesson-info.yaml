@@ -3,3 +3,5 @@ content:
   - Random generator seed
   - Predictable sequence
   - RPG dices
+  - Pseudorandomness
+  - Predictable  random  password

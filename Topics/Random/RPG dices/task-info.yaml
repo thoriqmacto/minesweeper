@@ -13,6 +13,9 @@ files:
       }
     learner_created: false
 feedback_link: https://hyperskill.org/learn/step/27075#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: <html>Correct solution</html>
+  time: "Tue, 28 Nov 2023 16:39:21 UTC"
 record: -1
 submission_language: kotlin
