@@ -1,0 +1,27 @@
+type: matching
+custom_name: How are the classes created?
+captions:
+  - A
+  - B
+  - C
+options:
+  - Primary
+  - Secondary
+  - Default
+files:
+  - name: src/Main.kt
+    visible: true
+    text: |
+      // You can experiment here, it won’t be checked
+      
+      fun main(args: Array<String>) {
+        // put your code here
+      }
+    learner_created: false
+feedback_link: https://hyperskill.org/learn/step/6240#comment
+status: Solved
+record: -1
+ordering:
+  - 0
+  - 1
+  - 2
