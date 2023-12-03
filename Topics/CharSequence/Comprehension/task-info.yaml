@@ -1,0 +1,26 @@
+type: matching
+captions:
+  - charAt()
+  - subSequence()
+  - contains()
+options:
+  - checks if a specified character or character sequence is present
+  - returns a new CharSequence representing a range of characters
+  - returns the character at the specified index
+files:
+  - name: src/Main.kt
+    visible: true
+    text: |
+      // You can experiment here, it won’t be checked
+      
+      fun main(args: Array<String>) {
+        // put your code here
+      }
+    learner_created: false
+feedback_link: https://hyperskill.org/learn/step/27021#comment
+status: Solved
+record: -1
+ordering:
+  - 0
+  - 1
+  - 2
