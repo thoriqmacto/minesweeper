@@ -7,177 +7,215 @@ fun main() {
 
     while (!game.isFinish){
         val userMark = game.promptToMark()
-        game.check(userMark)
+        val (nextCol, nextRow, nextGuess:String) = userMark.split(" ").map{ it }
+        val (listCol,listRow) = game.coordinateToListIndex(nextCol.toInt(),nextRow.toInt())
+        game.revealCell(listRow,listCol,nextGuess)
+
+        if(!game.isFinish){
+            game.printMineField()
+            game.check()
+        }
     }
 }
 
 class Minesweeper(private val totalRow: Int, private val totalCol: Int){
     private var numMines = 0
+    private val rowField = totalRow + 3 // to consider border shifting in mineField
+    private val colField = totalCol + 3 // to consider border shifting in mineField
+    private var correctMineGuess = 0
+    private var unexploredCells = 0
     var isFinish = false
 
-    private var outputList = mutableListOf<MutableList<Char>>()
+    private var gridMines = mutableListOf<MutableList<Cell>>()
     private var minesCoordinate = mutableListOf<Pair<Int,Int>>()
-    private var guessCoordinate = mutableListOf<Pair<Int,Int>>()
 
-    private val coordinateAlignment: (Int,Int) -> Pair<Int,Int> = { col,row ->
-        Pair(col-1,row-1)
+    val coordinateToListIndex:(Int,Int) -> Pair<Int,Int> = { column, row ->
+        Pair(column+1, row+1)
     }
 
-    private val coordinateToPlacing: (Int,Int) -> Pair<Int,Int> = { col,row ->
-        Pair(col+1,row+1)
-    }
+    // Inner class representing each cell in the Minesweeper grid
+    inner class Cell(var isMine: Boolean = false,
+                     var isExplored: Boolean = false,
+                     var adjacentMines: Int = 0,
+                     var isMarked: Boolean = false)
 
     init {
+        // prompt user to indicate total mines for the game
         print("How many mines do you want on the field? ")
         numMines = readln().toInt()
-        outputList = MutableList(totalRow){MutableList(totalCol){'.'} }
-        minesCoordinate = generateMinesCoordinate()
 
-        placeMines(minesCoordinate)
-        minesCoordinate.clear()
-        constructBattlefield()
-        print()
+        // init outputList to fill with Cell object
+        gridMines = MutableList(rowField){MutableList(colField){Cell()} }
+
+        // fill the gridMineChar with initial char then print the grid
+        printMineField()
+
+        // prompt the user for initial guess
+        val firstGuess = promptToMark()
+        val (initCol, initRow, guess:String) = firstGuess.split(" ").map{ it }
+
+        // place mines in the field
+        placeMines(Pair(initCol.toInt(),initRow.toInt()))
+
+        // auto-explore mines for first time
+        val (listCol,listRow) = coordinateToListIndex(initCol.toInt(),initRow.toInt())
+        revealCell(listRow,listCol,guess)
+        printMineField()
     }
 
-    private fun constructBattlefield(){
-        // add border and index for x and y coordinate
-        val newRow = totalRow + 3
-        val newCol = totalCol + 3
-        val outputListWithBorder = MutableList(newRow) { MutableList(newCol) { '.' } }
+    private fun countWinningParameters(){
+        // count unexplored cells
+        var totalUnexploredCells = 0
+        var totalCorrectMineGuess = 0
+        for (i in 0 until rowField - 1){
+            for (j in 0 until colField -1){
+                val cell = gridMines[i][j]
+                if (!cell.isExplored){
+                    totalUnexploredCells++
+                }
 
-        for (i in 0 until newRow) {
-            for (j in 0 until newCol) {
-                if (i == 0 && j > 1 && j != newCol - 1) {
-                    outputListWithBorder[i][j] = (j - 1).digitToChar()
-                } else if (j == 1 || j == newCol - 1) {
-                    outputListWithBorder[i][j] = '|'
-                } else if (j == 0 && i > 1 && i != newRow - 1) {
-                    outputListWithBorder[i][j] = (i - 1).digitToChar()
-                } else if (i == 1 || i == newRow - 1) {
-                    outputListWithBorder[i][j] = '-'
-                } else if ((i > 1 && i < newRow - 1) && (j > 1 && j < newCol - 1)) {
-                    val currentChar = outputList[i - 2][j - 2]
-                    if (currentChar == 'X') {
-                        outputListWithBorder[i][j] = '.'
-
-                        val (alignedCol,alignedRow) = coordinateAlignment(j,i)
-                        minesCoordinate.add(Pair(alignedCol,alignedRow))
-                    } else {
-                        outputListWithBorder[i][j] = currentChar
-                    }
-                } else {
-                    outputListWithBorder[i][j] = ' '
+                if(cell.isMarked && cell.isMine){
+                    totalCorrectMineGuess++
                 }
             }
         }
-
-        outputList = outputListWithBorder
+        unexploredCells = totalUnexploredCells
+        correctMineGuess = totalCorrectMineGuess
     }
 
-    private fun placeMines(minesCoordinate:MutableList<Pair<Int,Int>>) {
-        minesCoordinate.forEach { (r,c) ->
-            outputList[r][c] = 'X'
+    private fun placeMines(initCoordinate:Pair<Int,Int>) {
+        var randomRow = 1
+        var randomCol = 1
+
+        while((minesCoordinate.size < numMines) && Pair(randomCol,randomRow) != initCoordinate) {
+            randomRow = Random.nextInt(1, totalRow)
+            randomCol = Random.nextInt(1, totalCol)
+
+            if (!minesCoordinate.contains(Pair(randomCol,randomRow))) {
+                minesCoordinate.add(Pair(randomCol,randomRow))
+            }
+        }
+
+        minesCoordinate.forEach { (col,row) ->
+            val (listCol,listRow) = coordinateToListIndex(col,row)
+            val cell = gridMines[listRow][listCol]
+            cell.isMine = true
+            // cell.isExplored = true
 
             // put number surround mines
-            this.updateAdjacentCells(r, c)
+            updateAdjacentCells(listRow, listCol)
         }
     }
 
-    private fun generateMinesCoordinate():MutableList<Pair<Int,Int>>{
-        val output = mutableListOf<Pair<Int,Int>>()
-
-        do {
-            val randomRow = Random.nextInt(0, totalRow)
-            val randomCol = Random.nextInt(0, totalCol)
-
-            if (!output.contains(Pair(randomRow,randomCol))) {
-                output.add(Pair(randomRow,randomCol))
-            }
-        }while (output.size < numMines)
-
-        return output
-    }
-
-    private fun updateAdjacentCells(rowMine: Int, colMine: Int) {
+    private fun updateAdjacentCells(rowCheck: Int, colCheck: Int) {
         val adjacentCells = mutableListOf<Pair<Int, Int>>()
 
-        // Determine adjacent cells based on the mine position
+        // Determine adjacent cells based on the check cells position
         for (i in -1..1) {
             for (j in -1..1) {
-                val newRow = rowMine + i
-                val newCol = colMine + j
+                val newRow = rowCheck + i
+                val newCol = colCheck + j
 
-                if ((i != 0 || j != 0) && newRow in 0 until totalRow && newCol in 0 until totalCol) {
+                if ((i != 0 || j != 0) && (newRow in 0 until rowField) && (newCol in 0 until colField)) {
                     adjacentCells.add(Pair(newRow, newCol))
                 }
             }
         }
 
         // Update adjacent cells
-        adjacentCells.forEach { (r, c) ->
-            val currentChar = outputList[r][c]
-            if (currentChar.isDigit()) {
-                var tempInt = currentChar.digitToInt()
-                tempInt++
-                outputList[r][c] = tempInt.digitToChar()
-            }else if(currentChar != 'X' && currentChar == '.'){
-                outputList[r][c] = '1'
+        adjacentCells.forEach { (row, col) ->
+            val cell = gridMines[row][col]
+            if (!cell.isMine) {
+                // cell.isExplored = true
+                cell.adjacentMines++
             }
         }
     }
 
-    private fun print(){
-        outputList.forEach {
-            println(it.joinToString(""))
+    fun printMineField(){
+        for (i in 0 until rowField){
+            for (j in 0 until colField){
+                val cell = gridMines[i][j]
+                if(i == 0 && j > 1 && j != colField - 1) {          // first-row
+                    cell.isExplored = true
+                    print((j-1).digitToChar())
+                }else if (j == 0 && i > 1 && i != rowField - 1) {   // first-col
+                    cell.isExplored = true
+                    print((i-1).digitToChar())
+                }else if (j == 1 || j == colField - 1) {            // second-col
+                    cell.isExplored = true
+                    print('|')
+                    if (j == colField - 1) println()
+                }else if (i == 1 || i == rowField - 1) {            // second-row
+                    cell.isExplored = true
+                    print('-')
+                }else if( i== 0 && j == 0){                         // Coordinate (0,0)
+                    cell.isExplored = true
+                    print(' ')
+                }else if (cell.isExplored){
+                    if (cell.isMine) {
+                        print('X')
+                    } else if(cell.adjacentMines > 0 ) {
+                        print(cell.adjacentMines.digitToChar())
+                    } else{
+                        print('/')
+                    }
+                } else {
+                    if (cell.isMarked){
+                        print('*')
+                    }else {
+                        print('.')
+                    }
+                }
+            }
         }
-    }
 
-    private fun isGuessedCoordinateEqual(mineList:MutableList<Pair<Int,Int>>,
-                                         guessList:MutableList<Pair<Int,Int>>):Boolean{
+        countWinningParameters()
 
-        if (mineList.size != guessList.size) return false
-
-        return mineList.toSet() == guessList.toSet()
+//        println("Total Mines:$numMines")
+//        println("Mines Coordinate:$minesCoordinate")
+//        println("Total Correct Mine Guess:$correctMineGuess")
+//        println("Total Unexplored Cells:$unexploredCells")
     }
 
     fun promptToMark():String{
-        print("Set/delete mines marks (x and y coordinates): > ")
+        print("Set/unset mines marks or claim a cell as free: > ")
         return readln()
     }
 
-    private fun isContainNumber(coordinate:String):Boolean{
-        val (col,row) = coordinate.split(" ").map { it.toInt() }
-        val (placedCol,placedRow) = coordinateToPlacing(col,row)
-        return outputList[placedRow][placedCol].isDigit()
-    }
+    fun revealCell(row: Int, col: Int, guessWord:String = "free") {
+        val cell = gridMines[row][col]
 
-    private fun toggleCoordinate(coordinate: String){
-        val (col,row) = coordinate.split(" ").map { it.toInt() }
-        val (placedCol,placedRow) = coordinateToPlacing(col,row)
-        val currentChar = outputList[placedRow][placedCol]
+        if (cell.isExplored) {
+            return
+        } else if(guessWord == "mine") {
+            cell.isMarked = !cell.isMarked
+        } else{
+            cell.isExplored = true
+        }
 
-        if (currentChar == '*') {
-            outputList[placedRow][placedCol] = '.'
-            guessCoordinate.remove(Pair(col,row))
-        } else {
-            outputList[placedRow][placedCol] = '*'
-            guessCoordinate.add(Pair(col,row))
+        if (cell.isMine && guessWord == "free"){
+            printMineField()
+            println("You stepped on a mine and failed!")
+            isFinish = true
+        }else if(cell.adjacentMines == 0 && guessWord == "free"){
+            for (dx in -1..1){
+                for (dy in -1..1){
+                    if ((row+dx in 2 until rowField-1) && (col+dy in 2 until colField-1)) {
+                        revealCell(row + dx, col + dy)
+                    }
+                }
+            }
         }
     }
 
-    fun check(guessedCoordinate:String){
-        if (isContainNumber(guessedCoordinate)){
-            println("There is a number here")
-            print("Set/delete mines marks (x and y coordinates):")
-        }else{
-            toggleCoordinate(guessedCoordinate)
-            print()
+    fun check(){
+        countWinningParameters()
+
+        if (correctMineGuess == numMines || unexploredCells == numMines){
+            isFinish = true
         }
-//        println(minesCoordinate)
-//        println(guessCoordinate)
 
-        isFinish = isGuessedCoordinateEqual(minesCoordinate,guessCoordinate)
-
-        if (isFinish) println("Congratulations! You found all the mines!")
+        if (isFinish) println("Congratulations! You found all the mines!");
     }
 }
